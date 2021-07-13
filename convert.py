@@ -3,8 +3,68 @@ import cv2 as cv
 from mss import mss
 from PIL import Image
 
-import sys
+import gpiozero
 
+import sys
+import time
+
+adr = []
+
+adr.append(gpiozero.OutputDevice(27))
+adr.append(gpiozero.OutputDevice(22))
+adr.append(gpiozero.OutputDevice(10))
+adr.append(gpiozero.OutputDevice(9))
+adr.append(gpiozero.OutputDevice(11))
+adr.append(gpiozero.OutputDevice(5))
+adr.append(gpiozero.OutputDevice(6))
+adr.append(gpiozero.OutputDevice(13))
+adr.append(gpiozero.OutputDevice(19))
+adr.append(gpiozero.OutputDevice(26))
+
+dta = []
+
+dta.append(gpiozero.OutputDevice(14))
+dta.append(gpiozero.OutputDevice(15))
+dta.append(gpiozero.OutputDevice(18))
+dta.append(gpiozero.OutputDevice(23))
+dta.append(gpiozero.OutputDevice(24))
+dta.append(gpiozero.OutputDevice(25))
+dta.append(gpiozero.OutputDevice(8))
+dta.append(gpiozero.OutputDevice(7))
+
+writeEnable = gpiozero.OutputDevice(2)
+
+
+def outputAddress(addr):
+    for i in range(0,10):
+        if ((addr & 0b1) % 2 == 1):
+            adr[9 - i].on()
+        else:
+            adr[9 - i].off()
+
+        addr = addr >> 1
+
+def outputData(data):
+    for i in range(0,8):
+        if ((data & 0b1) % 2  == 1):
+            dta[7-i].on()
+        else:
+            dta[7-i].off()
+
+        data = data >> 1
+
+
+def writeToAddr(data, addr):
+    outputAddress(addr)
+    outputData(data)
+    writeEnable.on()
+    writeEnable.off()
+    writeEnable.on()
+
+
+def clearScreen():
+    for i in range(0, 1024):
+        writeToAddr(0, i)
 '''
 cap = cv.VideoCapture(0)
 
@@ -46,8 +106,22 @@ while cap.isOpened():
         break
 '''
 
+'''
 while True:
-    screenFrame = mss().grab({'left': 100, 'top': 100, 'width': 800, 'height': 600})
+    for i in range(0, 1024):
+        writeToAddr(255, i)
+        writeToAddr(0, i -1)
+        print("Addr =", i)
+        time.sleep(0.5)
+'''
+
+clearScreen();
+
+#writeToAddr(255, 0b0000000010)
+#writeToAddr(255, 0b0000000111)
+
+while True:
+    screenFrame = mss().grab({'left': 0, 'top': 0, 'width': 800, 'height': 600})
     
     frame = Image.frombytes(
         'RGB', 
@@ -77,6 +151,8 @@ while True:
                 
                 if (bit != 7):
                     gpuData[y][x] = gpuData[y][x] << 1
+                else:
+                    writeToAddr(gpuData[y][x],(((y << 4) & 0b1111110000) | (x & 0b1111)))
                 #print(black[y,(x * 8) + bit], end='')
         #print()
         
@@ -87,5 +163,5 @@ while True:
     if cv.waitKey(1) == ord('q'):
         break
 
-cap.release()
+#cap.release()
 cv.destroyAllWindows()
