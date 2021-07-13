@@ -53,7 +53,6 @@ def outputData(data):
 
         data = data >> 1
 
-
 def writeToAddr(data, addr):
     outputAddress(addr)
     outputData(data)
@@ -61,73 +60,45 @@ def writeToAddr(data, addr):
     writeEnable.off()
     writeEnable.on()
 
-
 def clearScreen():
     for i in range(0, 1024):
         writeToAddr(0, i)
-'''
-cap = cv.VideoCapture(0)
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    
-    if not ret:
-        print("No more frames, exiting")
-        break
-        
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    gray = cv.resize(gray, (80, 60)) 
-    #tret, black = cv.threshold(gray,127,255,cv.THRESH_BINARY)
-    black = cv.adaptiveThreshold(gray,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY,15,0)
-    finalframe = cv.resize(black, (800, 600), interpolation = cv.INTER_NEAREST) 
-    
-    cv.imshow('frame', finalframe)
-    
-    gpuData = [[0 for i in range(10)] for j in range(60)]
-    
+def writeFrame(frame):
     for y in range(0, 60):
         for x in range(0, 10):
+            gpuData = 0
             for bit in range(0,8):
-                if black[y,(x * 8) + bit] > 0:
-                    #print('#', end='')
-                    gpuData[y][x] |= 0b00000001
+                if frame[y,(x * 8) + bit] > 0:
+                    gpuData |= 0b00000001
                 else:
-                    #print('.', end='')
-                    gpuData[y][x] &= 0b11111110
+                    gpuData &= 0b11111110
                 
                 if (bit != 7):
-                    gpuData[y][x] = gpuData[y][x] << 1
-                #print(black[y,(x * 8) + bit], end='')
-        #print()
+                    gpuData = gpuData << 1
+                else:
+                    writeToAddr(gpuData,(((y << 4) & 0b1111110000) | (x & 0b1111)))
+
+clearScreen()
+
+if (len(sys.argv) >= 4):
+    cap = cv.VideoCapture(str(sys.argv[3]))
+
+while True:
+    if (len(sys.argv) < 4):
+        screenFrame = mss().grab({'left': 0, 'top': 0, 'width': 800, 'height': 600})
         
-    print(gpuData)
+        frame = Image.frombytes(
+            'RGB', 
+            (screenFrame.width, screenFrame.height), 
+            screenFrame.rgb,
+        )
+    else: #play video if filename is given
+        ret, frame = cap.read()
     
-    if cv.waitKey(1) == ord('q'):
-        break
-'''
-
-'''
-while True:
-    for i in range(0, 1024):
-        writeToAddr(255, i)
-        writeToAddr(0, i -1)
-        print("Addr =", i)
-        time.sleep(0.5)
-'''
-
-clearScreen();
-
-#writeToAddr(255, 0b0000000010)
-#writeToAddr(255, 0b0000000111)
-
-while True:
-    screenFrame = mss().grab({'left': 0, 'top': 0, 'width': 800, 'height': 600})
-    
-    frame = Image.frombytes(
-        'RGB', 
-        (screenFrame.width, screenFrame.height), 
-        screenFrame.rgb,
-    )
+        if not ret:
+            print("No more frames, exiting")
+            break
         
     gray = cv.cvtColor(np.array(frame), cv.COLOR_BGR2GRAY)
     gray = cv.resize(gray, (80, 60)) 
@@ -136,7 +107,9 @@ while True:
     finalframe = cv.resize(black, (800, 600), interpolation = cv.INTER_NEAREST) 
     
     cv.imshow('frame', finalframe)
+    writeFrame(black)
     
+    '''
     gpuData = [[0 for i in range(10)] for j in range(60)]
     
     for y in range(0, 60):
@@ -159,9 +132,11 @@ while True:
     for line in gpuData:
         print(line)
     print("======================")
+    '''
     
     if cv.waitKey(1) == ord('q'):
         break
 
-#cap.release()
+if (len(sys.argv) >= 4):
+    cap.release()
 cv.destroyAllWindows()
